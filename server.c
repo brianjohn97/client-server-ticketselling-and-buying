@@ -42,6 +42,7 @@ int main(int argc, char *argv[])
 	char s[64];
 	strftime(s,sizeof(s),"%c",tm);
         sprintf(sendBuff,"Message received from the server: %s\t%d\t%f\n",s,121,PI);
+        
 	
 	write(connfd, sendBuff, strlen(sendBuff)); 
 

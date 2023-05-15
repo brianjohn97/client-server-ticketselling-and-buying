@@ -8,11 +8,39 @@
 #include <unistd.h>
 #include <errno.h>
 #include <arpa/inet.h> 
+#include <string.h>
+#include <iostream>
 
 #define BUFFER_SIZE 1024
 #define PORT_NUMBER 5437
-void hello(){
+using namespace std;
+string num = "127.0.0.1";
+
+void commandLine(int argc, char *argv[]){
     
+    //fix error if user types in num
+    string word= argv[1];
+
+    if(argc < 2){
+        cout << "\nYou forgot to specify whether the client should be in automatic or manual mode!\n";
+        cout << "Try again with either mode specified!\n\n";
+        exit(0);
+        
+    } 
+    if(argc > 3){
+        cout << "\nThere are too many specifiers!\n";
+        cout << "There only should be 2! One of for the mode and another for the optional ini file!\n";
+        cout << "Please try again with the appropiate specifiers!\n\n";
+        exit(0);
+    }
+    if(word == "manual"){
+        cout << "\nM A N U A L  M O D E !\n\n";
+        exit(0);
+    }
+    if(word == "automatic"){
+        cout << "\nA U T O M A T I C \n\n";
+        exit(0);
+    }
 }
 int main(int argc, char *argv[])
 {
@@ -20,11 +48,10 @@ int main(int argc, char *argv[])
     char recvBuff[BUFFER_SIZE];
     struct sockaddr_in serv_addr; 
 
-    if(argc != 2)
-    {
-        printf("\n Usage: %s <ip of server> \n",argv[0]);
-        return 1;
-    } 
+    commandLine(argc, argv);
+
+    
+
 
     memset(recvBuff, '0',sizeof(recvBuff));
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
