@@ -15,7 +15,39 @@
 #define PORT_NUMBER 5437
 using namespace std;
 string num = "127.0.0.1";
+int rowSize = 10;
+int colSize = 10;
 
+void manual(){
+
+    while(true){
+        int row, col;
+
+        //get row
+        cout << "Please enter the row for the ticket you would like to buy!\n";
+        cin >> row;
+        if(!cin || row < 0 || row >= rowSize){
+            cout << "That row does not exist please try again!\n";
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            continue;
+        }
+        cout << endl;
+        cout << row << endl;
+
+//        try{
+//
+//            row  = stoi(argv[1]);
+//        }catch(exception& err){
+//            cout << "That was not an appropiate row number!\n";
+//            cout << "Please enter a decimal number for the row!\n";
+//            continue;
+//        }
+    }
+}
+void automatic(){
+
+}
 void commandLine(int argc, char *argv[]){
     
     //fix error if user types in num
@@ -34,11 +66,11 @@ void commandLine(int argc, char *argv[]){
         exit(0);
     }
     if(word == "manual"){
-        cout << "\nM A N U A L  M O D E !\n\n";
+        manual();
         exit(0);
     }
     if(word == "automatic"){
-        cout << "\nA U T O M A T I C \n\n";
+        automatic();
         exit(0);
     }
 }
