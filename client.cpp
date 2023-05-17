@@ -10,11 +10,14 @@
 #include <arpa/inet.h> 
 #include <string.h>
 #include <iostream>
+#include <limits>
 
+using namespace std;
 #define BUFFER_SIZE 1024
 #define PORT_NUMBER 5437
-using namespace std;
-string num = "127.0.0.1";
+string numStr = "127.0.0.1";
+const char* num = numStr.c_str();
+
 int rowSize = 10;
 int colSize = 10;
 
@@ -34,95 +37,80 @@ void manual(){
         }
         cout << endl;
         cout << row << endl;
-
-//        try{
-//
-//            row  = stoi(argv[1]);
-//        }catch(exception& err){
-//            cout << "That was not an appropiate row number!\n";
-//            cout << "Please enter a decimal number for the row!\n";
-//            continue;
-//        }
     }
 }
 void automatic(){
 
 }
 void commandLine(int argc, char *argv[]){
-    
-    //fix error if user types in num
-    string word= argv[1];
 
+    cout << "1\n";
     if(argc < 2){
         cout << "\nYou forgot to specify whether the client should be in automatic or manual mode!\n";
         cout << "Try again with either mode specified!\n\n";
         exit(0);
         
-    } 
+    }
     if(argc > 3){
         cout << "\nThere are too many specifiers!\n";
         cout << "There only should be 2! One of for the mode and another for the optional ini file!\n";
         cout << "Please try again with the appropiate specifiers!\n\n";
         exit(0);
     }
+
+    string word = argv[1];
+
     if(word == "manual"){
+        cout << "manual\n";
         manual();
         exit(0);
     }
     if(word == "automatic"){
+
+        cout << "automatic\n";
         automatic();
         exit(0);
     }
+    cout << "\nYou did not enter manual or automatic....\n";
+    cout << "Please try again with the correct appropiate specifier!\n\n";
+    exit(0);
+
 }
 int main(int argc, char *argv[])
 {
     int sockfd = 0, n = 0;
     char recvBuff[BUFFER_SIZE];
-    struct sockaddr_in serv_addr; 
-
-    commandLine(argc, argv);
-
-    
-
+    struct sockaddr_in serv_addr;
+    //commandLine(argc, argv);
 
     memset(recvBuff, '0',sizeof(recvBuff));
-    if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-    {
-        printf("\n Error : Could not create socket \n");
-        return 1;
-    } 
+    memset(&serv_addr, '0', sizeof(serv_addr));
 
-    memset(&serv_addr, '0', sizeof(serv_addr)); 
+    if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
+        cout << "\n Error : Could not create socket \n";
+        return 1;
+    }
 
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(PORT_NUMBER); 
+    serv_addr.sin_port = htons(PORT_NUMBER);
 
-    if(inet_pton(AF_INET, argv[1], &serv_addr.sin_addr)<=0)
-    {
-        printf("\n inet_pton error occured\n");
+
+    if(inet_pton(AF_INET, num, &serv_addr.sin_addr) <= 0){
+        cout << "\n inet_pton error occured\n";
         return 1;
-    } 
+    }
 
-    if( connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-    {
-       printf("\n Error : Connect Failed \n");
+    if( connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0){
+       cout << "\n Error : Connect Failed \n";
        return 1;
-    } 
+    }
 
 
-    while ( (n = read(sockfd, recvBuff, sizeof(recvBuff)-1)) > 0)
-    {
-        recvBuff[n] = 0;
-        if(fputs(recvBuff, stdout) == EOF)
-        {
-            printf("\n Error : Fputs error\n");
-        }
-    } 
+    int var = 45;
 
-    if(n < 0)
-    {
-        printf("\n Read error \n");
-    } 
+    if(send(sockfd, &var, sizeof(var), 0) == -1){cout << "send error!\n";exit(0);}
+
+    if(n < 0) { cout << "\n Read error \n";}
 
     close(sockfd);
     return 0;

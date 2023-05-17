@@ -99,48 +99,56 @@ void getSizeOfMap(int argc, char *argv[]){
 int main(int argc, char *argv[]){
     //creates the random seed
     srand(static_cast<unsigned int>(time(0)));
-    //getSizeOfMap(argc, argv);
+    getSizeOfMap(argc, argv);
     initBoard();
-    printBoard();
-    map.clear();
 
-    /*
-    int listenfd = 0, connfd = 0;
+    int listenfd = 0, connfd = 0, n = 0, sockfd = 0;
     struct sockaddr_in serv_addr; 
 
     char sendBuff[BUFFER_SIZE];
-    char secMess[BUFFER_SIZE];
+    char recvBuff[BUFFER_SIZE];
 
-    listenfd = socket(AF_INET, SOCK_STREAM, 0);
+
+    if((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {cout << "socket error!\n"; exit(0);}
     memset(&serv_addr, '0', sizeof(serv_addr));
-    memset(sendBuff, '0', sizeof(sendBuff)); 
-    memset(secMess, '0', sizeof(secMess)); 
+    memset(sendBuff, '0', sizeof(sendBuff));
 
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serv_addr.sin_port = htons(PORT_NUMBER); 
+    serv_addr.sin_port = htons(PORT_NUMBER);
 
-    bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)); 
 
-    listen(listenfd, 10); 
 
-    while(1)
-    {
-        connfd = accept(listenfd, (struct sockaddr*)NULL, NULL); 
+    if((bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) < 0){
+        cout << "Bind Error!\n"; exit(0);}
 
-        time_t t = time(NULL);
-        struct tm  * tm = localtime (&t);
-        char s[64];
-        strftime(s,sizeof(s),"%c",tm);
-        sprintf(sendBuff,"Message received from the server: %s\t%d\t%f\n",s,121,PI);
-        sprintf(secMess,"This is a very special test!");
+    if((listen(listenfd, 10)) < 0){cout << "Listen Error!\n"; exit(0);}
 
-        
-        
-        write(connfd, sendBuff, strlen(sendBuff)); 
-        write(connfd, secMess, strlen(secMess)); 
+
+    while(true){
+        //prints the current state of the ticket map and accept connections
+        printBoard();
+
+        //will wait for a connection
+        cout << "Waiting for client/buyer on port: 5437!\n";
+        fflush(stdout);
+        connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
+
+
+
+        int receivedVariable;
+        if (recv(connfd, &receivedVariable, sizeof(receivedVariable), 0) == -1) {
+            cout << "receiver error\n";
+            exit(0);
+        }
+        cout << "\nreceived variable: " << receivedVariable << endl;
+
+        //sprintf(sendBuff,"Message received from the server: \t%d\t%f\n",121,PI);
+
+        write(connfd, sendBuff, strlen(sendBuff));
 
         close(connfd);
         sleep(1);
-     }*/
+    }
+    map.clear();
 }
