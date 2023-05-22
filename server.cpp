@@ -20,8 +20,8 @@ using namespace std;
 
 
 pthread_mutex_t myMutex = PTHREAD_MUTEX_INITIALIZER;
-int initRow = 100;
-int initCol = 100;
+int initRow = 20;
+int initCol = 20;
 int row = 2;
 int col = 2;
 int totalTickets = row * col;
@@ -154,9 +154,16 @@ bool areThereTickets(){
 }
 
 void client(int connfd){
-    int row, col, temp;
+    int x = 1, y, temp, mark = 2;
     bool check = true;
 
+    //send over the size of the board
+    write(connfd, &row, sizeof(row));
+    write(connfd, &col, sizeof(col));
+
+
+    //loop that continually accepts new variables for the coordinates
+    //updates the ticket map and checks if there are any tickets left
     while(1){
         cout << "Ready to receive varaible!\n";
         if (recv(connfd, &temp, sizeof(temp), 0) == -1) {
@@ -164,20 +171,26 @@ void client(int connfd){
             exit(0);
         }
         if(check){
-            row = temp;
-            cout << "\nRow: " << row << endl;
+            x = temp;
+            cout << "\nRow: " << x << endl;
             check = false;
             continue;
         }else{
-            col = temp;
-            cout << "Column: " << row << endl <<  endl;
+            y = temp;
+            cout << "Column: " << y << endl <<  endl;
             check = true;
         }
         if(check){
-            updateTickets(row, col);
+            if(map[x][y] == -1){
+                write(connfd, &mark, sizeof(mark));
+                continue;
+            }
+            updateTickets(x, y);
             printBoard();
         }
-        if (areThereTickets()){cout << "There are no more Tickets! Sorry!\n"; noTickets = true; break;}
+        if (areThereTickets()){cout << "There are no more Tickets! Sorry!\n"; noTickets = true;
+            write(connfd, &x, sizeof(x));
+            break;}
     }
 }
 

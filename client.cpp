@@ -20,8 +20,8 @@ string numStr = "127.0.0.1";
 const char* num = numStr.c_str();
 int timeout = 5;
 
-int rowSize = 10;
-int colSize = 10;
+int rowSize = 1;
+int colSize = 1;
 
 int setup(){
     int sockfd = 0;
@@ -43,7 +43,7 @@ int setup(){
     if( connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0){
         sleep(timeout);
         if( connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0){
-            cout << "\nError: Tried connecting three times. Each failed!\n";
+            cout << "\nError: waited " << timeout << "seconds and could not connect\n";
             cout << "Please try again later!\n";
             exit(0);
         }
@@ -87,12 +87,17 @@ void readFile(string fileName){
 }
 
 void manual(){
+    bool isRow = true;
+    int row, n, x, y;
+    int sockfd = setup();
+
+    //receives the size of the board to make sure we dont enter an incorrect size
+    recv(sockfd, &rowSize, sizeof(rowSize), 0);
+    recv(sockfd, &colSize, sizeof(colSize), 0);
 
     //x is for when the server sends over a 1 indicating that all the tickets have been sold
 
-    bool isRow = true;
-    int row, n, x;
-    int sockfd = setup();
+
     while(true){
 
         if(isRow){cout << "\nEnter the X!: "; isRow = false; }else{cout << "\nEnter the Y!: "; isRow = true;}
@@ -108,6 +113,17 @@ void manual(){
         write(sockfd,&row, sizeof(row));
         if(n < 0) { cout << "\n Read error \n";}
         if(x == 1){ break;}
+        if(recv(sockfd, &x, sizeof(x), 0) > 0){
+            if(x == 1){
+                cout << "nThe server is unfortunately out of tickets! \n";
+                cout << "Better luck next time!\n";
+                break;
+            }else if (x == 2){
+                cout << "\nThat ticket is already taken!\n";
+                cout << "Please try again with a ticket that has not already been taken!\n";
+                continue;
+            }
+        }
     }
     close(sockfd);
 }
