@@ -1,0 +1,4 @@
+[Connection]
+IP = 192.168.1.2
+Port = 8080
+Timeout = 20

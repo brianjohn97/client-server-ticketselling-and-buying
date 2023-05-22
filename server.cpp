@@ -12,16 +12,20 @@
 #include <iostream>
 #include <vector>
 
-#define PI 4.0*atan(1.0)
-#define BUFFER_SIZE 1024
-#define PORT_NUMBER 5437
 using namespace std;
 
+#define PI 4.0*atan(1.0)
+#define BUFFER_SIZE 1024
+#define PORT_NUMBER 8080
+
+
+pthread_mutex_t myMutex = PTHREAD_MUTEX_INITIALIZER;
 int initRow = 100;
 int initCol = 100;
-int row = 10;
-int col = 10;
+int row = 2;
+int col = 2;
 int totalTickets = row * col;
+bool noTickets = false;
 
 vector<vector<int> > map(100, vector<int>(100));
 
@@ -96,33 +100,121 @@ void getSizeOfMap(int argc, char *argv[]){
     
 }
 
-int main(int argc, char *argv[]){
-    //creates the random seed
-    srand(static_cast<unsigned int>(time(0)));
-    getSizeOfMap(argc, argv);
-    initBoard();
+void blah(int connfd){
+    int receivedVariable;
+    cout << "Ready to receive varaible!\n";
+    while(1){
+        if (recv(connfd, &receivedVariable, sizeof(receivedVariable), 0) == -1) {
+            cout << "receiver error\n";
+            exit(0);
+        }
+        cout << "\nreceived variable: " << receivedVariable << endl;
+    }
 
+}
+
+void * client(void * arg){
+    int receivedVariable;
+    cout << "Ready to receive varaible!\n";
+    int x, y;
+    while(1){
+        for (int i = 0; i < 2; ++i) {
+            /*
+            if (recv(connfd, &receivedVariable, sizeof(receivedVariable), 0) == -1) {
+                cout << "receiver error\n";
+                exit(0);
+            }
+            cout << "\nreceived variable: " << receivedVariable << endl;
+            if (i == 0){x = receivedVariable; continue;}
+            y = receivedVariable;
+             */
+        }
+        pthread_mutex_lock(&myMutex);
+        if(map[x][y] == -1){cout << "That ticket has already been sold! Sorry!\n"; pthread_mutex_unlock(&myMutex); continue; }
+        map[x][y] = -1;
+        totalTickets--;
+        pthread_mutex_unlock(&myMutex);
+    }
+}
+
+void updateTickets(int x, int y){
+    cout << "updating ticket information at location ["<<x<<"]["<<y<<"]! \n";
+    map[x][y] = -1;
+}
+
+bool areThereTickets(){
+    int counter = 0;
+    for (int i = 0; i < row; ++i) {
+        for (int j = 0; j < col; ++j) {
+            if(map[i][j] != -1){counter ++;}
+        }
+    }
+    if(counter != 0){ return false;}
+    return true;
+}
+
+void client(int connfd){
+    int row, col, temp;
+    bool check = true;
+
+    while(1){
+        cout << "Ready to receive varaible!\n";
+        if (recv(connfd, &temp, sizeof(temp), 0) == -1) {
+            cout << "receiver error\n";
+            exit(0);
+        }
+        if(check){
+            row = temp;
+            cout << "\nRow: " << row << endl;
+            check = false;
+            continue;
+        }else{
+            col = temp;
+            cout << "Column: " << row << endl <<  endl;
+            check = true;
+        }
+        if(check){
+            updateTickets(row, col);
+            printBoard();
+        }
+        if (areThereTickets()){cout << "There are no more Tickets! Sorry!\n"; noTickets = true; break;}
+    }
+}
+
+int setup(){
     int listenfd = 0, connfd = 0, n = 0, sockfd = 0;
-    struct sockaddr_in serv_addr; 
-
-    char sendBuff[BUFFER_SIZE];
-    char recvBuff[BUFFER_SIZE];
-
-
     if((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {cout << "socket error!\n"; exit(0);}
-    memset(&serv_addr, '0', sizeof(serv_addr));
-    memset(sendBuff, '0', sizeof(sendBuff));
 
+    int opt = 1;
+    if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0){
+        std::cout << "Failed to set SO_REUSEADDR option. " << strerror(errno) << "\n";
+        return 1;
+    }
+    if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0){
+        std::cout << "Failed to set SO_REUSEPORT option. " << strerror(errno) << "\n";
+        return 1;
+    }
+
+    struct sockaddr_in serv_addr;
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     serv_addr.sin_port = htons(PORT_NUMBER);
 
-
-
     if((bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) < 0){
-        cout << "Bind Error!\n"; exit(0);}
+        close(listenfd);
+        cout << "Bind Error!\n" << strerror(errno); exit(0);}
 
     if((listen(listenfd, 10)) < 0){cout << "Listen Error!\n"; exit(0);}
+
+    return listenfd;
+}
+
+int main(int argc, char *argv[]){
+    //creates the random seed
+    srand(static_cast<unsigned int>(time(0)));
+    //getSizeOfMap(argc, argv);
+    initBoard();
+    int listenfd = setup();
 
 
     while(true){
@@ -130,25 +222,19 @@ int main(int argc, char *argv[]){
         printBoard();
 
         //will wait for a connection
-        cout << "Waiting for client/buyer on port: 5437!\n";
+        cout << "Waiting for client/buyer on port: " << PORT_NUMBER << "!\n";
         fflush(stdout);
-        connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
+        int connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
 
-
-
-        int receivedVariable;
-        if (recv(connfd, &receivedVariable, sizeof(receivedVariable), 0) == -1) {
-            cout << "receiver error\n";
-            exit(0);
-        }
-        cout << "\nreceived variable: " << receivedVariable << endl;
+        client(connfd);
+        if(noTickets){break;}
 
         //sprintf(sendBuff,"Message received from the server: \t%d\t%f\n",121,PI);
 
-        write(connfd, sendBuff, strlen(sendBuff));
+        //write(connfd, sendBuff, strlen(sendBuff));
 
-        close(connfd);
-        sleep(1);
+        //close(connfd);
     }
     map.clear();
+    close(listenfd);
 }
