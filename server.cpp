@@ -154,7 +154,7 @@ bool areThereTickets(){
 }
 
 void client(int connfd){
-    int x = 1, y, temp, mark = 2;
+    int x = 1, y, temp, mark = 2, no = 0;
     bool check = true;
 
     //send over the size of the board
@@ -165,33 +165,34 @@ void client(int connfd){
     //loop that continually accepts new variables for the coordinates
     //updates the ticket map and checks if there are any tickets left
     while(1){
-        cout << "Ready to receive varaible!\n";
-        if (recv(connfd, &temp, sizeof(temp), 0) == -1) {
+        cout << "\nReady to receive variable!\n";
+        if (recv(connfd, &temp, sizeof(temp), 0)  < 0) {
             cout << "receiver error\n";
             exit(0);
         }
         if(check){
             x = temp;
-            cout << "\nRow: " << x << endl;
             check = false;
             continue;
         }else{
             y = temp;
-            cout << "Column: " << y << endl <<  endl;
             check = true;
         }
         if(check){
             if(map[x][y] == -1){
-                write(connfd, &mark, sizeof(mark));
+                if(write(connfd, &mark, sizeof(mark)) < 0){cout << "Lost connection\n";exit(0);}
                 continue;
             }
             updateTickets(x, y);
             printBoard();
         }
-        if (areThereTickets()){cout << "There are no more Tickets! Sorry!\n"; noTickets = true;
-            write(connfd, &x, sizeof(x));
-            break;}
+        if (areThereTickets()){cout << "There are no more Tickets! Sorry!\n\n"; noTickets = true;
+            if(write(connfd, &x, sizeof(x)) < 0){cout <<"lost connection\n";exit(0);}
+            break;
+        }
+        if(write(connfd, &no, sizeof(no)) < 0){cout << "lost connection\n";exit(0);}
     }
+    if(write(connfd, &x, sizeof(x)) < 0){cout << "Lost connection\n";exit(0);}
 }
 
 int setup(){

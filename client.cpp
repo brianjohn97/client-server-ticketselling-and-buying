@@ -13,6 +13,7 @@
 #include <limits>
 #include <fstream>
 #include <vector>
+#include <random>
 
 using namespace std;
 int PORT_NUMBER =  8080;
@@ -52,20 +53,34 @@ int setup(){
 }
 void automatic(){
     //creates the random seed
+    random_device rd;
+    mt19937 gen(rd());
+    uniform_int_distribution<int> distX(0, rowSize);
+    uniform_int_distribution<int> distY(0, colSize);
     srand(static_cast<unsigned int>(time(0)));
-
-    //x is for when the server sends over a 1 indicating that all the tickets have been sold
 
     bool isRow = true;
     int row, n, x;
     int sockfd = setup();
 
-    while(true){
-        if(isRow){x = rand() % rowSize; isRow = false;}else{ x = rand() % colSize; isRow = true;}
+    //receives the size of the board to make sure we don't enter an incorrect size
+    recv(sockfd, &rowSize, sizeof(rowSize), 0);
+    recv(sockfd, &colSize, sizeof(colSize), 0);
 
+    while(true){
+        if(isRow){row = distX(gen); isRow = false;}else{ row = distY(gen); isRow = true;}
         write(sockfd,&row, sizeof(row));
         if(n < 0) { cout << "\n Read error \n";}
         if(x == 1){ break;}
+        if(isRow){
+            recv(sockfd, &x, sizeof(x), 0);
+            if(x == 1){
+                cout << "\nThe server is unfortunately out of tickets! \n";
+                cout << "Better luck next time!\n\n";
+                break;
+            }
+            sleep(3);
+        }
     }
 }
 
@@ -88,10 +103,10 @@ void readFile(string fileName){
 
 void manual(){
     bool isRow = true;
-    int row, n, x, y;
+    int row, n, x, y, col;
     int sockfd = setup();
 
-    //receives the size of the board to make sure we dont enter an incorrect size
+    //receives the size of the board to make sure we don't enter an incorrect size
     recv(sockfd, &rowSize, sizeof(rowSize), 0);
     recv(sockfd, &colSize, sizeof(colSize), 0);
 
@@ -102,7 +117,7 @@ void manual(){
 
         if(isRow){cout << "\nEnter the X!: "; isRow = false; }else{cout << "\nEnter the Y!: "; isRow = true;}
         cin >> row;
-
+        if(isRow){col = row;}
         if(!cin || row < 0 || row >= rowSize){
             cout << "That row does not exist please try again!\n";
             cin.clear();
@@ -113,17 +128,18 @@ void manual(){
         write(sockfd,&row, sizeof(row));
         if(n < 0) { cout << "\n Read error \n";}
         if(x == 1){ break;}
-        if(recv(sockfd, &x, sizeof(x), 0) > 0){
+        if(isRow){
+            recv(sockfd, &x, sizeof(x), 0);
             if(x == 1){
-                cout << "nThe server is unfortunately out of tickets! \n";
-                cout << "Better luck next time!\n";
+                cout << "\nThe server is unfortunately out of tickets! \n";
+                cout << "Better luck next time!\n\n";
                 break;
             }else if (x == 2){
                 cout << "\nThat ticket is already taken!\n";
                 cout << "Please try again with a ticket that has not already been taken!\n";
                 continue;
             }
-        }
+        }else{cout << "Successfully purchased ticket for seat["<<row<<"]["<<col<<"]";}
     }
     close(sockfd);
 }
