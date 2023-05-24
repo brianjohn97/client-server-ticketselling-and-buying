@@ -109,13 +109,14 @@ void manual(){
     //receives the size of the board to make sure we don't enter an incorrect size
     recv(sockfd, &rowSize, sizeof(rowSize), 0);
     recv(sockfd, &colSize, sizeof(colSize), 0);
+    cout << rowSize << endl << colSize << endl;
 
     //x is for when the server sends over a 1 indicating that all the tickets have been sold
 
 
     while(true){
 
-        if(isRow){cout << "\nEnter the X!: "; isRow = false; }else{cout << "\nEnter the Y!: "; isRow = true;}
+        if(isRow){cout << "\nEnter the X!: "; isRow = false; }else{cout << "Enter the Y!: "; isRow = true;}
         cin >> row;
         if(isRow){col = row;}
         if(!cin || row < 0 || row >= rowSize){
@@ -139,7 +140,8 @@ void manual(){
                 cout << "Please try again with a ticket that has not already been taken!\n";
                 continue;
             }
-        }else{cout << "Successfully purchased ticket for seat["<<row<<"]["<<col<<"]";}
+            cout << "\nSuccessfully purchased ticket for seat["<<row<<"]["<<col<<"]\n";
+        }else{}
     }
     close(sockfd);
 }

@@ -11,26 +11,58 @@
 #include <math.h>
 #include <iostream>
 #include <vector>
+#include <pthread.h>
+#include <mutex>
+#include <sys/mman.h>
+#include <limits>
+#include <fcntl.h>
+#include <random>
+#include <iostream>
+#include <vector>
+#include <sys/shm.h>
+#include <sys/types.h>
+#include <iostream>
+#include <thread>
+#include <vector>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <iostream>
+#include <pthread.h>
+#include <sys/socket.h>
+#include <linux/in.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/mman.h>
+#include <sys/mman.h>
 
 using namespace std;
 
-#define PI 4.0*atan(1.0)
-#define BUFFER_SIZE 1024
 #define PORT_NUMBER 8080
 
 
 pthread_mutex_t myMutex = PTHREAD_MUTEX_INITIALIZER;
 int initRow = 20;
 int initCol = 20;
-int row = 2;
-int col = 2;
+int total = initCol * initRow;
+int blah = total * 2;
+int row = 4;
+int col = 4;
 int totalTickets = row * col;
 bool noTickets = false;
 
+
 vector<vector<int> > map(100, vector<int>(100));
+
+
+struct connection_t {
+    int sock;
+    struct sockaddr address;
+    int addr_len;
+};
 
 //prints the current state of the board
 void printBoard(){
+
     //print the numbers for the columns
     for (int i = 0; i < col; i++){
         if(i == 0){
@@ -42,7 +74,7 @@ void printBoard(){
     cout << endl;
 
     //print out elements
-    for(int i = 0; i< col;i++){
+    for(int i = 0; i< row;i++){
         for (int j=0;j<col;j++){
             if(map[i][j] == -1){
                 cout << "[ "  << map[i][j] << "  ]\t";
@@ -55,12 +87,16 @@ void printBoard(){
 }
 
 // initializes the board with random ticket price value
-void initBoard(){
+void initBoard() {
+
+    random_device rd;
+    mt19937 gen(rd());
+    uniform_int_distribution<int> dist(100, 500);
 
     //create the board
-    vector<string> temp;
-    for(int i=0;i < row;i++){
-        for (int j = 0; j < col; j++){
+
+    for (int i = 0; i < row; i++) {
+        for (int j = 0; j < col; j++) {
             //random ticket prices
             int ticketPrice = rand() % 400 + 100;
             map[i][j] = ticketPrice;
@@ -100,48 +136,6 @@ void getSizeOfMap(int argc, char *argv[]){
     
 }
 
-void blah(int connfd){
-    int receivedVariable;
-    cout << "Ready to receive varaible!\n";
-    while(1){
-        if (recv(connfd, &receivedVariable, sizeof(receivedVariable), 0) == -1) {
-            cout << "receiver error\n";
-            exit(0);
-        }
-        cout << "\nreceived variable: " << receivedVariable << endl;
-    }
-
-}
-
-void * client(void * arg){
-    int receivedVariable;
-    cout << "Ready to receive varaible!\n";
-    int x, y;
-    while(1){
-        for (int i = 0; i < 2; ++i) {
-            /*
-            if (recv(connfd, &receivedVariable, sizeof(receivedVariable), 0) == -1) {
-                cout << "receiver error\n";
-                exit(0);
-            }
-            cout << "\nreceived variable: " << receivedVariable << endl;
-            if (i == 0){x = receivedVariable; continue;}
-            y = receivedVariable;
-             */
-        }
-        pthread_mutex_lock(&myMutex);
-        if(map[x][y] == -1){cout << "That ticket has already been sold! Sorry!\n"; pthread_mutex_unlock(&myMutex); continue; }
-        map[x][y] = -1;
-        totalTickets--;
-        pthread_mutex_unlock(&myMutex);
-    }
-}
-
-void updateTickets(int x, int y){
-    cout << "updating ticket information at location ["<<x<<"]["<<y<<"]! \n";
-    map[x][y] = -1;
-}
-
 bool areThereTickets(){
     int counter = 0;
     for (int i = 0; i < row; ++i) {
@@ -153,9 +147,11 @@ bool areThereTickets(){
     return true;
 }
 
-void client(int connfd){
+void client(int connfd, int* board){
+
+
     int x = 1, y, temp, mark = 2, no = 0;
-    bool check = true;
+    bool check = true, check2 = false;
 
     //send over the size of the board
     write(connfd, &row, sizeof(row));
@@ -164,8 +160,9 @@ void client(int connfd){
 
     //loop that continually accepts new variables for the coordinates
     //updates the ticket map and checks if there are any tickets left
+    cout << "\nReady to receive variable from conndfd: " << connfd << "\n\n";
     while(1){
-        cout << "\nReady to receive variable!\n";
+
         if (recv(connfd, &temp, sizeof(temp), 0)  < 0) {
             cout << "receiver error\n";
             exit(0);
@@ -179,20 +176,40 @@ void client(int connfd){
             check = true;
         }
         if(check){
-            if(map[x][y] == -1){
-                if(write(connfd, &mark, sizeof(mark)) < 0){cout << "Lost connection\n";exit(0);}
-                continue;
+
+            cout << "x: " <<x << "     y: " << y << endl;
+            for (int i = 0, j = i+1; i < blah; ++i) {
+                if(board[i] == x && board[j] == y){
+                    cout << "ALready taken!\n";
+                    if(write(connfd, &mark, sizeof(mark)) < 0){cout << "Lost connection\n";exit(0);}
+                    check2 = true;
+                    break;
+                }
             }
-            updateTickets(x, y);
+            if(check2){check2 = false; continue;}
+            cout << "updating ticket information at location ["<<x<<"]["<<y<<"]! \n";
+            map[x][y] = -1;
             printBoard();
+            for (int i = 0, j= i+1; i < blah; ++i, j++) {
+                if(board[i] == -1){
+                    board[i] = x;
+                    board[j] = y;
+                    break;
+                }
+            }
         }
         if (areThereTickets()){cout << "There are no more Tickets! Sorry!\n\n"; noTickets = true;
             if(write(connfd, &x, sizeof(x)) < 0){cout <<"lost connection\n";exit(0);}
             break;
         }
         if(write(connfd, &no, sizeof(no)) < 0){cout << "lost connection\n";exit(0);}
+        for (int i = 0; i < 10; ++i) {
+            cout << board[i] << endl;
+        }
     }
     if(write(connfd, &x, sizeof(x)) < 0){cout << "Lost connection\n";exit(0);}
+    close(connfd);
+
 }
 
 int setup(){
@@ -224,11 +241,60 @@ int setup(){
 }
 
 int main(int argc, char *argv[]){
-    //creates the random seed
-    srand(static_cast<unsigned int>(time(0)));
+
     //getSizeOfMap(argc, argv);
+
+    //creates the shared memory name and saves the size of it
+    const char* name = "/my_shared_memory";
+    const int SIZE = sizeof(int)*10;
+
+    //maps out a location for the memory and returns error if its not able to do so
+    int fd = shm_open(name, O_CREAT | O_RDWR, 0666);
+    if(fd == -1){
+        perror("shm_open");
+        exit(1);
+    }
+    if(ftruncate(fd, SIZE) == -1){
+        perror("ftruncate");
+        exit(1);
+    }
+
+    //creates shared memory obj and cast it to the map variable
+    int * board = static_cast<int*>(mmap(NULL, sizeof(int)*10, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS,-1,0));
+
+
+    //initializes the board with -1s
+    for(int i=0; i< blah;i++){
+        board[i] = -1;
+    }
+
     initBoard();
     int listenfd = setup();
+
+    /*
+    int pid = fork();
+    if(pid == 0){
+        cout << "I am in the child\n";
+        for(int i = 0; i < 10; i++)
+        {
+            ClassicalArray[i] = i;
+            board[i]  = 10 -i;
+        }
+        printf("\nI am done in the child\n");
+        exit(0);
+    }else{
+        wait(NULL);
+        printf("I am in the parent\n");
+        //print the classical array
+        for(int i = 0; i < 10; i++)
+            printf("%d\t", ClassicalArray[i]);
+        printf("\n");
+        //print the shared array
+        for(int i = 0; i < 10; i++)
+            printf("%d\t", board[i]);
+        printf("\nI am done in the parent\n");
+    }*/
+
 
 
     while(true){
@@ -239,16 +305,23 @@ int main(int argc, char *argv[]){
         cout << "Waiting for client/buyer on port: " << PORT_NUMBER << "!\n";
         fflush(stdout);
         int connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
+        //client(connfd);
+        int pid = fork();
 
-        client(connfd);
+
+        if(pid == 0){
+            //cout << "child!\n";
+            client(connfd, board);
+        }else{
+            //cout << "parent\n";
+        }
+
         if(noTickets){break;}
 
-        //sprintf(sendBuff,"Message received from the server: \t%d\t%f\n",121,PI);
-
-        //write(connfd, sendBuff, strlen(sendBuff));
 
         //close(connfd);
     }
+    munmap(board,sizeof(int)*blah);
     map.clear();
     close(listenfd);
 }
