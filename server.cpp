@@ -1,3 +1,4 @@
+//I took the sockets example code from class and used that to start my program off of.
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
