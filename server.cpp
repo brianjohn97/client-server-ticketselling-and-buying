@@ -3,37 +3,22 @@
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/types.h>
 #include <time.h> 
 #include <math.h>
 #include <iostream>
-#include <vector>
-#include <pthread.h>
 #include <mutex>
 #include <sys/mman.h>
 #include <limits>
 #include <fcntl.h>
 #include <random>
-#include <iostream>
-#include <vector>
 #include <sys/shm.h>
-#include <sys/types.h>
-#include <iostream>
-#include <thread>
-#include <vector>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <iostream>
-#include <pthread.h>
-#include <sys/socket.h>
-#include <linux/in.h>
-#include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/mman.h>
-#include <sys/mman.h>
+
 
 using namespace std;
 

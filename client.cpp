@@ -7,8 +7,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
-#include <arpa/inet.h> 
-#include <string.h>
+#include <arpa/inet.h>
 #include <iostream>
 #include <limits>
 #include <fstream>
