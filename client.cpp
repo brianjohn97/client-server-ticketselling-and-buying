@@ -14,16 +14,20 @@
 #include <fstream>
 #include <vector>
 #include <random>
+#include <algorithm>
+#include <string>
 
 using namespace std;
+
+//global variables
 int PORT_NUMBER =  8080;
 string numStr = "127.0.0.1";
-const char* num = numStr.c_str();
 int timeout = 5;
 
 int rowSize = 1;
 int colSize = 1;
 
+//starts the client and connections to the server
 int setup(){
     int sockfd = 0;
     struct sockaddr_in serv_addr;
@@ -32,14 +36,10 @@ int setup(){
         cout << "\n Error : Could not create socket \n";
         exit(0);
     }
-    memset(&serv_addr, '0', sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT_NUMBER);
+    serv_addr.sin_addr.s_addr = inet_addr(numStr.c_str());
 
-    if(inet_pton(AF_INET, num, &serv_addr.sin_addr) <= 0){
-        cout << "\n inet_pton error occured\n";
-        exit(0);
-    }
 
     if( connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0){
         sleep(timeout);
@@ -51,39 +51,51 @@ int setup(){
     }
     return sockfd;
 }
+
+//automatically buys random tickets
 void automatic(){
     //creates the random seed
     random_device rd;
     mt19937 gen(rd());
-    uniform_int_distribution<int> distX(0, rowSize);
-    uniform_int_distribution<int> distY(0, colSize);
-    srand(static_cast<unsigned int>(time(0)));
-
     bool isRow = true;
-    int row, n, x;
+    int row, n, x, temp, col;
     int sockfd = setup();
 
     //receives the size of the board to make sure we don't enter an incorrect size
     recv(sockfd, &rowSize, sizeof(rowSize), 0);
     recv(sockfd, &colSize, sizeof(colSize), 0);
 
+    //function for generating random functions
+    uniform_int_distribution<int> distX(0, rowSize-1);
+    uniform_int_distribution<int> distY(0, colSize-1);
+
     while(true){
+        //gets the correct random number
         if(isRow){row = distX(gen); isRow = false;}else{ row = distY(gen); isRow = true;}
+        if(isRow){col = row;}
+
+        //sends it to the server
         write(sockfd,&row, sizeof(row));
+
+        //checks for error
         if(n < 0) { cout << "\n Read error \n";}
         if(x == 1){ break;}
         if(isRow){
+            //receives int from server to see if the ticket was already bought
             recv(sockfd, &x, sizeof(x), 0);
             if(x == 1){
                 cout << "\nThe server is unfortunately out of tickets! \n";
                 cout << "Better luck next time!\n\n";
                 break;
-            }
+            }else if( x == 2){ continue;}
+            cout << "\nSuccessfully purchased ticket for seat["<<temp<<"]["<<col<<"]\n";
             sleep(3);
         }
+        temp = row;
     }
 }
 
+//reads the given file for ip address, port number and timeout
 void readFile(string fileName){
 
     ifstream file(fileName);
@@ -101,35 +113,48 @@ void readFile(string fileName){
     automatic();
 }
 
+//lets the user pick which tickets that they want
 void manual(){
     bool isRow = true;
-    int row, n, x, y, col;
+    int row, n, x, y, col, temp;
     int sockfd = setup();
 
     //receives the size of the board to make sure we don't enter an incorrect size
     recv(sockfd, &rowSize, sizeof(rowSize), 0);
     recv(sockfd, &colSize, sizeof(colSize), 0);
-    cout << rowSize << endl << colSize << endl;
-
-    //x is for when the server sends over a 1 indicating that all the tickets have been sold
-
 
     while(true){
-
+        //takes in an int from user and check it
         if(isRow){cout << "\nEnter the X!: "; isRow = false; }else{cout << "Enter the Y!: "; isRow = true;}
+
         cin >> row;
-        if(isRow){col = row;}
-        if(!cin || row < 0 || row >= rowSize){
-            cout << "That row does not exist please try again!\n";
-            cin.clear();
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            if(!isRow){ isRow = true;}else { isRow = false;}
-            continue;
+        if(isRow){
+            col = row;
+            if(!cin || col < 0 || col >= colSize){
+                cout << "That col does not exist please try again!\n";
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                if(!isRow){ isRow = true;}else { isRow = false;}
+                continue;
+            }
+
+        }else {
+            if (!cin || row < 0 || row >= rowSize) {
+                cout << "That row does not exist please try again!\n";
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                if (!isRow) { isRow = true; } else { isRow = false; }
+                continue;
+            }
         }
+
+        //sends that int to the server and checks for errors
         write(sockfd,&row, sizeof(row));
         if(n < 0) { cout << "\n Read error \n";}
         if(x == 1){ break;}
+
         if(isRow){
+            //receives int from user if ticket is already taken or if the server ran out of tickets
             recv(sockfd, &x, sizeof(x), 0);
             if(x == 1){
                 cout << "\nThe server is unfortunately out of tickets! \n";
@@ -140,23 +165,24 @@ void manual(){
                 cout << "Please try again with a ticket that has not already been taken!\n";
                 continue;
             }
-            cout << "\nSuccessfully purchased ticket for seat["<<row<<"]["<<col<<"]\n";
-        }else{}
+            cout << "\nSuccessfully purchased ticket for seat["<<temp<<"]["<<col<<"]\n";
+        }
+        temp = row;
     }
     close(sockfd);
 }
 
+//gets the ini file from user on whether they want manual or automatic
 void commandLine(int argc, char *argv[]){
 
-    //have the server send over the size of the map
-
-
+    //no specifier
     if(argc < 2){
         cout << "\nYou forgot to specify whether the client should be in automatic or manual mode!\n";
         cout << "Try again with either mode specified!\n\n";
         exit(0);
         
     }
+    //too many
     if(argc > 3){
         cout << "\nThere are too many specifiers!\n";
         cout << "There only should be 2! One of for the mode and another for the optional ini file!\n";
@@ -166,8 +192,8 @@ void commandLine(int argc, char *argv[]){
 
     string word = argv[1];
 
+    //determines which function to call
     if(word == "manual"){
-        cout << "manual\n";
         manual();
         exit(0);
     }
@@ -176,33 +202,21 @@ void commandLine(int argc, char *argv[]){
             automatic();
             exit(0);
         }
+        cout << "reading ip address and port number from file!\n";
         readFile(argv[2]);
         exit(0);
     }
+
+    //lets user know they did not enter it in correctly
     cout << "\nYou did not enter manual or automatic....\n";
     cout << "Please try again with the correct appropiate specifier!\n\n";
     exit(0);
 
 }
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
 
+    //calls command line function to get started
     commandLine(argc, argv);
-
-    //manual();
     return 0;
 }
-void junk(){
-    /*
-int x = 0;
-while(true){
-    //if(send(sockfd, &x, sizeof(x), 0) == -1){cout << "send error!\n";}
-    write(sockfd,&x, sizeof(x));
-    cout << "Enter the X coordinate for the ticket you would like to purchase!";
-    cin >> x;
-    cout << x << endl;
 
-    if(n < 0) { cout << "\n Read error \n";}
-    sleep(2);
-}*/
-}

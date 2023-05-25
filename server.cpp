@@ -39,29 +39,21 @@ using namespace std;
 
 #define PORT_NUMBER 8080
 
-
-pthread_mutex_t myMutex = PTHREAD_MUTEX_INITIALIZER;
-int initRow = 20;
-int initCol = 20;
-int total = initCol * initRow;
-int blah = total * 2;
 int row = 4;
 int col = 4;
 int totalTickets = row * col;
 bool noTickets = false;
 
-
-vector<vector<int> > map(100, vector<int>(100));
-
-
-struct connection_t {
-    int sock;
-    struct sockaddr address;
-    int addr_len;
-};
-
 //prints the current state of the board
-void printBoard(){
+void printBoard(int *map){
+
+    //converts the 1d array to a 2d one
+    int convert[row][col];
+    for (int i = 0; i < row; i++){
+        for (int j = 0; j < col; j++){
+            convert[i][j] = map[i * col + j];
+        }
+    }
 
     //print the numbers for the columns
     for (int i = 0; i < col; i++){
@@ -76,10 +68,10 @@ void printBoard(){
     //print out elements
     for(int i = 0; i< row;i++){
         for (int j=0;j<col;j++){
-            if(map[i][j] == -1){
-                cout << "[ "  << map[i][j] << "  ]\t";
+            if(convert[i][j] == -1){
+                cout << "[ "  << convert[i][j] << "  ]\t";
                 continue;}
-            cout << "[ "  << map[i][j] << " ]\t";
+            cout << "[ "  << convert[i][j] << " ]\t";
         }
         cout << endl;
     }
@@ -87,28 +79,23 @@ void printBoard(){
 }
 
 // initializes the board with random ticket price value
-void initBoard() {
-
+void initBoard(int *map) {
+    //random num generator
     random_device rd;
     mt19937 gen(rd());
     uniform_int_distribution<int> dist(100, 500);
 
     //create the board
-
-    for (int i = 0; i < row; i++) {
-        for (int j = 0; j < col; j++) {
-            //random ticket prices
-            int ticketPrice = rand() % 400 + 100;
-            map[i][j] = ticketPrice;
-        }
+    int totalEle = row * col;
+    for (int i = 0; i < totalEle; i++) {
+        map[i] = dist(gen);
     }
 }
 
 //gets the size of the map from the user and checks for anything that would cause errors
-void getSizeOfMap(int argc, char *argv[]){
+void getSizeOfMap(int argc, char *argv[], int *board){
 
-    //map size of 25 was the max amount of columns that could fit onto macbook air screen without any wrap around.
-
+    //check if there are too many or too little arguments
     if(argc > 3){
         cout << "\nThere are too many arguements for the map size of tickets!\n";
         cout << "Please enter a row size and a column size and thats it!\n";
@@ -131,27 +118,29 @@ void getSizeOfMap(int argc, char *argv[]){
             exit(0);
         }
     }
+    //initialize the board
     totalTickets = row * col;
-    initBoard();
+    initBoard(board);
     
 }
 
-bool areThereTickets(){
+//checks if there are tickets in the map and returns bool
+bool areThereTickets(int *map){
+    int totalEle = row * col;
+
     int counter = 0;
-    for (int i = 0; i < row; ++i) {
-        for (int j = 0; j < col; ++j) {
-            if(map[i][j] != -1){counter ++;}
-        }
+    for (int i = 0; i < totalEle; ++i) {
+        if(map[i] != -1){counter ++;}
     }
     if(counter != 0){ return false;}
     return true;
 }
 
-void client(int connfd, int* board){
+//handles the clients
+void client(int connfd, int* map){
 
-
-    int x = 1, y, temp, mark = 2, no = 0;
-    bool check = true, check2 = false;
+    int x = 1, y, temp, mark = 2, no = 0, id = connfd -5;
+    bool isX = true;
 
     //send over the size of the board
     write(connfd, &row, sizeof(row));
@@ -160,58 +149,61 @@ void client(int connfd, int* board){
 
     //loop that continually accepts new variables for the coordinates
     //updates the ticket map and checks if there are any tickets left
-    cout << "\nReady to receive variable from conndfd: " << connfd << "\n\n";
+    cout << "\nReady to receive ticket information from client: " << id << "\n\n";
+
+    //prints the current state of the ticket map and accept connections
+    printBoard(map);
     while(1){
 
+        if(map[400] == 1){no =1; write(connfd, &no, sizeof(x)); exit(0);}
+        //receives the coordinates
         if (recv(connfd, &temp, sizeof(temp), 0)  < 0) {
             cout << "receiver error\n";
             exit(0);
         }
-        if(check){
+        //determines if its an x or y
+        if(isX){
             x = temp;
-            check = false;
+            isX = false;
             continue;
         }else{
             y = temp;
-            check = true;
+            isX = true;
         }
-        if(check){
+        if(isX){
+            //checks if that ticket has already been bought
+            //if so then send message to client letting them know
+            if(map[x * col + y] == -1){
+                if(write(connfd, &mark, sizeof(mark)) < 0){
+                    cout << "Lost connection\n";exit(0);
+                }
+                continue;
+            }
 
-            cout << "x: " <<x << "     y: " << y << endl;
-            for (int i = 0, j = i+1; i < blah; ++i) {
-                if(board[i] == x && board[j] == y){
-                    cout << "ALready taken!\n";
-                    if(write(connfd, &mark, sizeof(mark)) < 0){cout << "Lost connection\n";exit(0);}
-                    check2 = true;
-                    break;
-                }
-            }
-            if(check2){check2 = false; continue;}
-            cout << "updating ticket information at location ["<<x<<"]["<<y<<"]! \n";
-            map[x][y] = -1;
-            printBoard();
-            for (int i = 0, j= i+1; i < blah; ++i, j++) {
-                if(board[i] == -1){
-                    board[i] = x;
-                    board[j] = y;
-                    break;
-                }
-            }
+            //purchases the ticket
+            cout << "client: "<< id <<" purchased ticket ["<<x<<"]["<<y<<"]! \n";
+            map[x * col + y] = -1;
+
+            //prints current state of tickets and lets clients know where they can connect
+            cout << "Waiting for client/buyer on port: " << PORT_NUMBER << "!\n\n";
+            printBoard(map);
         }
-        if (areThereTickets()){cout << "There are no more Tickets! Sorry!\n\n"; noTickets = true;
+
+        //if there are no tickets it prints it to the server and lets the client know
+        if (areThereTickets(map)){
+            cout << "There are no more Tickets! Sorry!\n\n";
+            noTickets = true;
+            map[400] = 1;
             if(write(connfd, &x, sizeof(x)) < 0){cout <<"lost connection\n";exit(0);}
             break;
         }
         if(write(connfd, &no, sizeof(no)) < 0){cout << "lost connection\n";exit(0);}
-        for (int i = 0; i < 10; ++i) {
-            cout << board[i] << endl;
-        }
     }
     if(write(connfd, &x, sizeof(x)) < 0){cout << "Lost connection\n";exit(0);}
     close(connfd);
-
 }
 
+//starts the server
 int setup(){
     int listenfd = 0, connfd = 0, n = 0, sockfd = 0;
     if((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {cout << "socket error!\n"; exit(0);}
@@ -242,8 +234,6 @@ int setup(){
 
 int main(int argc, char *argv[]){
 
-    //getSizeOfMap(argc, argv);
-
     //creates the shared memory name and saves the size of it
     const char* name = "/my_shared_memory";
     const int SIZE = sizeof(int)*10;
@@ -260,68 +250,45 @@ int main(int argc, char *argv[]){
     }
 
     //creates shared memory obj and cast it to the map variable
-    int * board = static_cast<int*>(mmap(NULL, sizeof(int)*10, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS,-1,0));
+    int * map = static_cast<int*>(mmap(NULL, sizeof(int)*10, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS,-1,0));
 
+    getSizeOfMap(argc, argv, map);
 
-    //initializes the board with -1s
-    for(int i=0; i< blah;i++){
-        board[i] = -1;
-    }
+    // knows when to quit
+    map[400] = -1;
 
-    initBoard();
     int listenfd = setup();
-
-    /*
-    int pid = fork();
-    if(pid == 0){
-        cout << "I am in the child\n";
-        for(int i = 0; i < 10; i++)
-        {
-            ClassicalArray[i] = i;
-            board[i]  = 10 -i;
-        }
-        printf("\nI am done in the child\n");
-        exit(0);
-    }else{
-        wait(NULL);
-        printf("I am in the parent\n");
-        //print the classical array
-        for(int i = 0; i < 10; i++)
-            printf("%d\t", ClassicalArray[i]);
-        printf("\n");
-        //print the shared array
-        for(int i = 0; i < 10; i++)
-            printf("%d\t", board[i]);
-        printf("\nI am done in the parent\n");
-    }*/
-
-
-
-    while(true){
-        //prints the current state of the ticket map and accept connections
-        printBoard();
+    int i = 1, pid;
+    printBoard(map);
+    while(!noTickets){
 
         //will wait for a connection
-        cout << "Waiting for client/buyer on port: " << PORT_NUMBER << "!\n";
-        fflush(stdout);
-        int connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
-        //client(connfd);
-        int pid = fork();
-
-
-        if(pid == 0){
-            //cout << "child!\n";
-            client(connfd, board);
-        }else{
-            //cout << "parent\n";
+        if(i == 1){
+            cout << "\nWaiting for client/buyer on port: " << PORT_NUMBER << "!\n";
+            i = 2;
         }
 
-        if(noTickets){break;}
-
-
-        //close(connfd);
+        //accepts the connection forks a process
+        //hsa the parent wait for another connection while the child deals with the current connection
+        fflush(stdout);
+        int connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
+        pid = fork();
+        if(pid == 0){
+            client(connfd, map);
+        }
     }
-    munmap(board,sizeof(int)*blah);
-    map.clear();
+    //close out the shared memory then wait for all the clients to try
+    //one last time before killing the process
+    if(munmap(map,sizeof(int)*(row*col)) == -1){
+        perror("munmap");
+        exit(1);
+    }
+    if(close(fd) == -1){
+        perror("close");
+        exit(1);
+    }
     close(listenfd);
+    sleep(10);
+    kill(pid, SIGKILL);
+    return 0;
 }
